@@ -1,9 +1,16 @@
 import { useUser, UserButton } from "@clerk/clerk-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function VotePage() {
   const { user } = useUser();
   const [selectedElection, setSelectedElection] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      console.log("🧑 Clerk User ID:", user.id);
+      console.log("📧 Email:", user.primaryEmailAddress.emailAddress);
+    }
+  }, [user]);
 
   const elections = [
     {
@@ -37,8 +44,16 @@ export default function VotePage() {
           <p className="text-xs text-gray-400">{user?.primaryEmailAddress?.emailAddress}</p>
         </div>
         <div className="mt-8">
-          <UserButton afterSignOutUrl="/" />
-        </div>
+  <UserButton
+    redirectUrl="/"
+    appearance={{
+      elements: {
+        userButtonAvatarBox: { display: "none" },
+      },
+    }}
+  />
+</div>
+
       </aside>
 
       {/* Main Content */}

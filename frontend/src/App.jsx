@@ -41,10 +41,6 @@ export default function App() {
             src="/logo.png" 
             alt="Logo" 
             className="h-8 w-8 object-contain" // Added object-contain for better image fitting
-            onError={(e) => {
-              e.target.onerror = null; 
-              e.target.src = "https://via.placeholder.com/32"; // Fallback image
-            }}
           />
           <h1 className="text-xl font-bold">BallotChain</h1>
         </div>
