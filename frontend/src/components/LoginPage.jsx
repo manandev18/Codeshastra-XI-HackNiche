@@ -1,69 +1,51 @@
 import { useState } from "react";
-import { auth, firebase } from "../firebase";
 
 export default function LoginPage() {
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState(null);
-
-  const sendOTP = async () => {
-    try {
-      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier("recaptcha", {
-        size: "invisible",
-        callback: (response) => {
-          console.log("reCAPTCHA solved ✅", response);
-        },
-      });
-
-      const result = await auth.signInWithPhoneNumber(phone, window.recaptchaVerifier);
-      setConfirmationResult(result);
-      alert("OTP Sent ✅");
-    } catch (err) {
-      console.error("OTP send failed:", err.message);
-      alert("Error: " + err.message);
-    }
-  };
-
-  const verifyOTP = async () => {
-    try {
-      await confirmationResult.confirm(otp);
-      alert("OTP Verified ✅");
-    } catch (err) {
-      alert("Invalid OTP ❌");
-    }
-  };
+  const [isLogin, setIsLogin] = useState(true);
 
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <input
-        type="text"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="+91XXXXXXXXXX"
-        className="border p-2 mb-2 w-full"
-      />
-      <div id="recaptcha" />
-      <button onClick={sendOTP} className="bg-blue-500 text-white px-4 py-2 rounded w-full">
-        Send OTP
-      </button>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="bg-white p-8 rounded shadow w-full max-w-sm">
+        <h1 className="text-2xl font-bold mb-6 text-center">
+          {isLogin ? "Login to BallotChain" : "Create a BallotChain Account"}
+        </h1>
 
-      {confirmationResult && (
-        <>
+        <form className="space-y-4">
           <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            placeholder="Enter OTP"
-            className="border p-2 my-2 w-full"
+            type="email"
+            placeholder="Email"
+            className="w-full p-2 border rounded"
           />
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full p-2 border rounded"
+          />
+          {!isLogin && (
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              className="w-full p-2 border rounded"
+            />
+          )}
           <button
-            onClick={verifyOTP}
-            className="bg-green-600 text-white px-4 py-2 rounded w-full"
+            type="submit"
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
           >
-            Verify OTP
+            {isLogin ? "Login" : "Sign Up"}
           </button>
-        </>
-      )}
+        </form>
+
+        <p className="mt-4 text-sm text-center">
+          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+          <button
+            onClick={() => setIsLogin(!isLogin)}
+            className="text-blue-500 underline"
+          >
+            {isLogin ? "Sign up here" : "Login here"}
+          </button>
+        </p>
+      </div>
     </div>
   );
 }
