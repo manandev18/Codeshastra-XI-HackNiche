@@ -18,7 +18,7 @@ contract SmartGovernanceVoting {
         bool verifiedSMS;
         bool verifiedHardware;
         bytes32 ipHash;
-        bytes32 name; // Added name field
+        bytes32 name;
     }
 
     struct RankedVote {
@@ -36,20 +36,25 @@ contract SmartGovernanceVoting {
     mapping(address => mapping(uint => uint)) private quadraticVotes;
     mapping(address => RankedVote) private rankedVotes;
 
+    mapping(address => uint) private activeDisputeIndex;
     Dispute[] public disputes;
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can register voters");
+        require(msg.sender == admin, "Only admin can perform this action");
         _;
     }
 
     modifier onlyVerified(address _voter) {
         Voter memory v = voters[_voter];
-        require(v.verifiedBiometric && v.verifiedSMS && v.verifiedHardware, "You are not registered to vote");
+        if (!(v.verifiedBiometric && v.verifiedSMS && v.verifiedHardware)) {
+            _autoRaiseDispute(_voter, "Attempted to vote without full verification");
+            revert("Voter not fully verified. Dispute has been raised.");
+        }
         _;
     }
 
     function registerVoter(address _voter, bytes32 _ipHash, bytes32 _name) public onlyAdmin {
+        require(!voters[_voter].isRegistered, "Voter is already registered");
         voters[_voter] = Voter(true, false, false, false, false, _ipHash, _name);
     }
 
@@ -103,22 +108,32 @@ contract SmartGovernanceVoting {
     }
 
     function getVoterName(address voter) public view returns (string memory) {
-        return string(abi.encodePacked(voters[voter].name));
+        bytes32 nameBytes = voters[voter].name;
+        return string(abi.encodePacked(nameBytes));
     }
 
     function raiseDispute(string memory reason) public {
         require(voters[msg.sender].isRegistered, "Not a registered voter");
-        disputes.push(Dispute({
-            voter: msg.sender,
-            reason: reason,
-            status: DisputeStatus.Raised
-        }));
+        _autoRaiseDispute(msg.sender, reason);
     }
 
     function resolveDispute(uint disputeIndex) public onlyAdmin {
         require(disputeIndex < disputes.length, "Invalid dispute index");
-        require(disputes[disputeIndex].status == DisputeStatus.Raised, "Dispute is not in a raised state");
+        require(disputes[disputeIndex].status == DisputeStatus.Raised, "Dispute not raised");
         disputes[disputeIndex].status = DisputeStatus.Resolved;
+    }
+
+    function _autoRaiseDispute(address voter, string memory reason) internal {
+        if (disputes.length > 0 && disputes[activeDisputeIndex[voter]].status == DisputeStatus.Raised) {
+            return; // Already has a raised dispute
+        }
+
+        disputes.push(Dispute({
+            voter: voter,
+            reason: reason,
+            status: DisputeStatus.Raised
+        }));
+        activeDisputeIndex[voter] = disputes.length - 1;
     }
 
     function isAllowedGeoVote(address voter, bytes32 currentIPHash) public view returns (bool) {
