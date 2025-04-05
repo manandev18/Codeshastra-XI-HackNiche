@@ -1,0 +1,21 @@
+{
+  "name": "blockchain-projects",
+  "version": "1.0.0",
+  "description": "<<<<<<< HEAD\r # Codeshastra-XI-HackNiche\r Blockchain based Voting system\r =======\r # Sample Hardhat Project",
+  "main": "hardhat.config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.13",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.22.19"
+  }
+}
