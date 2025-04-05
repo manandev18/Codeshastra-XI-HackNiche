@@ -78,6 +78,7 @@ export default function App() {
             <img src="/logo.png" alt="BallotChain Logo" className="mb-4 h-32 w-32" />
 
 
+
             <h1 className="text-5xl font-extrabold text-white drop-shadow-lg">
               BallotChain
             </h1>

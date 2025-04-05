@@ -1,6 +1,8 @@
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import CryptoJS from "crypto-js";
+import { generateProof } from "../utils/generateProof";
+
 
 export default function VotePage() {
   const { user } = useUser();
@@ -60,26 +62,40 @@ export default function VotePage() {
     },
   ];
 
-  const handleSubmitVote = () => {
-  if (!user || !selectedElection) return;
-
-  const vote = voteData[selectedElection.id];
-  const userId = user.id;
-
-  // Convert object vote data to string (for non-yes/no cases)
-  const voteString = typeof vote === "object" ? JSON.stringify(vote) : vote;
-
-  const secret = userId; // or use Date.now() or Math.random()
-  const combined = voteString + secret;
-
-  const commitment = CryptoJS.SHA256(combined).toString();
-
-  console.log("🗳️ Vote cast (obfuscated):", voteString);
-  console.log("🔐 Commitment Hash (stored on-chain):", commitment);
-
-  alert("✅ Vote submitted anonymously!");
-  setSelectedElection(null);
-};
+  const handleSubmitVote = async () => {
+    if (!user || !selectedElection) return;
+  
+    const vote = voteData[selectedElection.id];
+    const userId = user.id;
+  
+    // Convert object vote data to string (for non-yes/no cases)
+    const voteString = typeof vote === "object" ? JSON.stringify(vote) : vote;
+  
+    const secret = userId; // Or add timestamp for extra uniqueness
+    const combined = voteString + secret;
+    const commitment = CryptoJS.SHA256(combined).toString();
+  
+    console.log("🗳️ Vote cast (obfuscated):", voteString);
+    console.log("🔐 Commitment Hash (stored on-chain):", commitment);
+  
+    try {
+      // Simulate vote input: 1 for yes, 0 for no
+      const zkpInput = selectedElection.id === "1" ? 1 : 0;
+  
+      const { proof, publicSignals } = await generateProof(zkpInput);
+  
+      console.log("✅ ZKP Proof:", proof);
+      console.log("📤 Public Signals:", publicSignals);
+  
+      alert("✅ Vote submitted anonymously with valid proof!");
+    } catch (err) {
+      console.error("❌ Error generating ZKP proof:", err);
+      alert("❌ Failed to generate proof. Check console.");
+    } finally {
+      setSelectedElection(null);
+    }
+  };
+  
 
   const renderVoteUI = (election) => {
     switch (election.method) {
