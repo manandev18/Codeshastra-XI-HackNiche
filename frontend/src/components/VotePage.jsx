@@ -2,6 +2,7 @@ import { useUser, UserButton } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import CryptoJS from "crypto-js";
 import { generateProof } from "../utils/generateProof";
+import { contractInstance, web3 } from "../utils/voteContract";
 
 
 export default function VotePage() {
@@ -63,15 +64,18 @@ export default function VotePage() {
   ];
 
   const handleSubmitVote = async () => {
+    if (!window.ethereum) {
+      alert("MetaMask is not installed!");
+      return;
+    }
+    
     if (!user || !selectedElection) return;
   
     const vote = voteData[selectedElection.id];
     const userId = user.id;
   
-    // Convert object vote data to string (for non-yes/no cases)
     const voteString = typeof vote === "object" ? JSON.stringify(vote) : vote;
-  
-    const secret = userId; // Or add timestamp for extra uniqueness
+    const secret = userId; // Same as before
     const combined = voteString + secret;
     const commitment = CryptoJS.SHA256(combined).toString();
   
@@ -79,22 +83,52 @@ export default function VotePage() {
     console.log("🔐 Commitment Hash (stored on-chain):", commitment);
   
     try {
-      // Simulate vote input: 1 for yes, 0 for no
+      // ZKP simulation
       const zkpInput = selectedElection.id === "1" ? 1 : 0;
-  
       const { proof, publicSignals } = await generateProof(zkpInput);
-  
       console.log("✅ ZKP Proof:", proof);
       console.log("📤 Public Signals:", publicSignals);
   
-      alert("✅ Vote submitted anonymously with valid proof!");
+      // 🧠 Smart Contract submission
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const sender = accounts[0];
+
+  
+      const userIdHash = web3.utils.soliditySha3(userId);
+      const commitmentBytes32 = "0x" + commitment; // Hash is already 32 bytes
+
+
+      if (!window.ethereum) {
+        alert("Please install MetaMask!");
+        return;
+      }
+      
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const sender = accounts[0];
+        const userIdHash = web3.utils.sha3(user.id);
+      
+        await contractInstance.methods.submitVote(userIdHash, commitment).send({ from: sender });
+      
+        console.log("✅ Vote submitted to blockchain.");
+        alert("✅ Vote successfully recorded on-chain!");
+      } catch (err) {
+        console.error("❌ Vote submission error:", err);
+        alert("❌ Failed to submit vote to blockchain. See console for details.");
+      }
+      
+      await contractInstance.methods.submitVote(userIdHash, commitmentBytes32)
+        .send({ from: sender });
+  
+      alert("✅ Vote successfully submitted to the blockchain!");
     } catch (err) {
-      console.error("❌ Error generating ZKP proof:", err);
-      alert("❌ Failed to generate proof. Check console.");
+      console.error("❌ Vote submission error:", err);
+      alert("❌ Failed to submit vote. See console.");
     } finally {
       setSelectedElection(null);
     }
   };
+  
   
 
   const renderVoteUI = (election) => {
