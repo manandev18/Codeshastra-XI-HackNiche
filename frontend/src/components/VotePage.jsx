@@ -4,12 +4,14 @@ import CryptoJS from "crypto-js";
 import { generateProof } from "../utils/generateProof";
 import { contractInstance, web3 } from "../utils/voteContract";
 
+
 export default function VotePage() {
   const { user } = useUser();
   const [selectedElection, setSelectedElection] = useState(null);
   const [isAllowedLocation, setIsAllowedLocation] = useState(true);
   const [locationError, setLocationError] = useState(null);
-  const [voteData, setVoteData] = useState({});
+
+  const [voteData, setVoteData] = useState({}); // to store vote responses
 
   useEffect(() => {
     if (user) {
@@ -63,51 +65,56 @@ export default function VotePage() {
 
   const handleSubmitVote = async () => {
     if (!window.ethereum) {
-      alert("Please install MetaMask!");
-      return;
-    }
+  alert("MetaMask is not installed!");
+  return;
+}
 
     if (!user || !selectedElection) return;
-
+  
     const vote = voteData[selectedElection.id];
     const userId = user.id;
+  
     const voteString = typeof vote === "object" ? JSON.stringify(vote) : vote;
-    const commitment = CryptoJS.SHA256(voteString + userId).toString();
-
+    const secret = userId; // Same as before
+    const combined = voteString + secret;
+    const commitment = CryptoJS.SHA256(combined).toString();
+  
     console.log("🗳️ Vote cast (obfuscated):", voteString);
-    console.log("🔐 Commitment Hash:", commitment);
-
+    console.log("🔐 Commitment Hash (stored on-chain):", commitment);
+  
     try {
+      // ZKP simulation
       const zkpInput = selectedElection.id === "1" ? 1 : 0;
       const { proof, publicSignals } = await generateProof(zkpInput);
       console.log("✅ ZKP Proof:", proof);
       console.log("📤 Public Signals:", publicSignals);
-
+  
+      // 🧠 Smart Contract submission
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       const sender = accounts[0];
+  
       const userIdHash = web3.utils.soliditySha3(userId);
-      const commitmentBytes32 = "0x" + commitment;
-
-      if (commitmentBytes32.length !== 66) {
-        throw new Error("Commitment is not valid bytes32 length");
-      }
-
-      await contractInstance.methods.submitVote(userIdHash, commitmentBytes32).send({ from: sender });
-
-      alert("✅ Vote recorded with valid proof!");
+      const commitmentBytes32 = "0x" + commitment; // Hash is already 32 bytes
+  
+      await contractInstance.methods.submitVote(userIdHash, commitmentBytes32)
+        .send({ from: sender });
+  
+      alert("✅ Vote successfully submitted to the blockchain!");
     } catch (err) {
       console.error("❌ Vote submission error:", err);
-      alert("❌ Failed to submit vote. Check console.");
+      alert("❌ Failed to submit vote. See console.");
     } finally {
       setSelectedElection(null);
     }
   };
+  
+  
 
   const renderVoteUI = (election) => {
     switch (election.method) {
       case "Approval Voting":
         return election.candidates.map((name) => (
-          <label key={name} className="flex items-center gap-2 my-1">
+          <label key={name} className="block my-1">
             <input
               type="checkbox"
               value={name}
@@ -119,16 +126,15 @@ export default function VotePage() {
                   return { ...prev, [election.id]: Array.from(updated) };
                 });
               }}
-              className="accent-blue-600"
             />
-            <span>{name}</span>
+            <span className="ml-2">{name}</span>
           </label>
         ));
 
       case "Ranked Choice Voting":
-        return election.candidates.map((name) => (
-          <div key={name} className="mb-3">
-            <label className="font-medium">{name}</label>
+        return election.candidates.map((name, i) => (
+          <div key={name} className="mb-2">
+            <label className="block font-medium">{name}</label>
             <select
               onChange={(e) =>
                 setVoteData((prev) => ({
@@ -140,7 +146,7 @@ export default function VotePage() {
                 }))
               }
               defaultValue=""
-              className="border border-gray-300 rounded px-2 py-1 mt-1 w-full"
+              className="border rounded px-2 py-1 w-full"
             >
               <option disabled value="">
                 Select rank
@@ -156,14 +162,13 @@ export default function VotePage() {
 
       case "Quadratic Voting":
         return election.candidates.map((name) => (
-          <div key={name} className="mb-3">
-            <label className="block font-medium">{name}</label>
+          <div key={name} className="mb-2">
+            <label className="block">{name}</label>
             <input
               type="range"
               min="0"
               max="5"
               step="1"
-              className="w-full"
               onChange={(e) =>
                 setVoteData((prev) => ({
                   ...prev,
@@ -174,7 +179,7 @@ export default function VotePage() {
                 }))
               }
             />
-            <span className="text-sm text-gray-600">
+            <span className="ml-2 text-sm text-gray-600">
               Votes: {voteData?.[election.id]?.[name] || 0}
             </span>
           </div>
@@ -186,29 +191,33 @@ export default function VotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex">
+    <div className="min-h-screen bg-gray-100 flex">
       {/* Sidebar */}
-      <aside className="w-72 bg-white shadow-xl p-6 flex flex-col justify-between border-r">
+      <aside className="w-64 bg-white border-r p-6 flex flex-col justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-blue-700 mb-6">BallotChain 🗳️</h1>
+          <h1 className="text-2xl font-bold text-blue-700 mb-6">BallotChain 🗳️</h1>
           <p className="text-sm text-gray-600 mb-2">Welcome,</p>
           <p className="font-medium text-gray-800">{user?.fullName}</p>
           <p className="text-xs text-gray-400">{user?.primaryEmailAddress?.emailAddress}</p>
         </div>
-        <UserButton
-          redirectUrl="/"
-          appearance={{
-            elements: { userButtonAvatarBox: { display: "none" } },
-          }}
-        />
+        <div className="mt-8">
+          <UserButton
+            redirectUrl="/"
+            appearance={{
+              elements: {
+                userButtonAvatarBox: { display: "none" },
+              },
+            }}
+          />
+        </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-10">
-        <h2 className="text-4xl font-bold text-blue-800 mb-8">Available Elections</h2>
+      {/* Main */}
+      <main className="flex-1 p-8 overflow-y-auto">
+        <h2 className="text-3xl font-bold text-blue-700 mb-6">Available Elections</h2>
 
         {locationError && (
-          <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-4">
+          <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">
             📍 {locationError}
           </div>
         )}
@@ -222,12 +231,12 @@ export default function VotePage() {
           {elections.map((election) => (
             <div
               key={election.id}
-              className="bg-white border border-gray-200 p-6 rounded-2xl shadow hover:shadow-lg transition cursor-pointer"
+              className="bg-white p-5 rounded-xl shadow hover:shadow-lg cursor-pointer transition"
               onClick={() => setSelectedElection(election)}
             >
               <h3 className="text-xl font-semibold text-blue-700">{election.title}</h3>
               <p className="text-gray-600 mt-2">{election.description}</p>
-              <span className="text-sm text-blue-500 italic block mt-1">{election.method}</span>
+              <span className="text-sm text-blue-500 italic mt-1 block">{election.method}</span>
             </div>
           ))}
         </div>
@@ -236,25 +245,29 @@ export default function VotePage() {
       {/* Vote Modal */}
       {selectedElection && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-xl shadow-xl max-w-md w-full relative">
+          <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full relative">
             <button
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-800"
+              className="absolute top-2 right-2 text-gray-500 hover:text-black"
               onClick={() => setSelectedElection(null)}
             >
               ✖
             </button>
             <h3 className="text-2xl font-bold mb-2">{selectedElection.title}</h3>
-            <p className="text-gray-600 mb-3">{selectedElection.description}</p>
-            <p className="text-sm text-blue-500 italic mb-4">Voting method: {selectedElection.method}</p>
+            <p className="mb-4 text-gray-600">{selectedElection.description}</p>
+            <p className="text-sm text-blue-500 italic mb-2">
+              Voting method: {selectedElection.method}
+            </p>
 
-            <div className="mb-6">{renderVoteUI(selectedElection)}</div>
+            <div className="mb-4">{renderVoteUI(selectedElection)}</div>
 
             <button
               onClick={handleSubmitVote}
               disabled={!isAllowedLocation}
-              className={`w-full text-white py-2 rounded-lg font-medium transition ${
-                isAllowedLocation ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
-              }`}
+              className={`w-full ${
+                isAllowedLocation
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-gray-400 cursor-not-allowed"
+              } text-white py-2 rounded`}
             >
               {isAllowedLocation ? "Submit Vote" : "Location Restricted"}
             </button>
