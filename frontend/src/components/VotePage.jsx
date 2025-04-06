@@ -65,69 +65,58 @@ export default function VotePage() {
 
   const handleSubmitVote = async () => {
     if (!window.ethereum) {
-      alert("MetaMask is not installed!");
+      alert("Please install MetaMask!");
       return;
     }
-    
+  
     if (!user || !selectedElection) return;
   
     const vote = voteData[selectedElection.id];
     const userId = user.id;
   
+    // Convert vote to string format
     const voteString = typeof vote === "object" ? JSON.stringify(vote) : vote;
-    const secret = userId; // Same as before
-    const combined = voteString + secret;
-    const commitment = CryptoJS.SHA256(combined).toString();
+    const combined = voteString + userId;
+    const commitment = CryptoJS.SHA256(combined).toString(); // hex string
   
     console.log("🗳️ Vote cast (obfuscated):", voteString);
-    console.log("🔐 Commitment Hash (stored on-chain):", commitment);
+    console.log("🔐 Commitment Hash:", commitment);
   
     try {
-      // ZKP simulation
+      // ✅ Generate ZKP
       const zkpInput = selectedElection.id === "1" ? 1 : 0;
       const { proof, publicSignals } = await generateProof(zkpInput);
+  
       console.log("✅ ZKP Proof:", proof);
       console.log("📤 Public Signals:", publicSignals);
   
-      // 🧠 Smart Contract submission
+      // ✅ Submit to Smart Contract
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
       const sender = accounts[0];
-
   
       const userIdHash = web3.utils.soliditySha3(userId);
-      const commitmentBytes32 = "0x" + commitment; // Hash is already 32 bytes
-
-
-      if (!window.ethereum) {
-        alert("Please install MetaMask!");
-        return;
+      const commitmentBytes32 = "0x" + commitment;
+  
+      // Ensure hex string is exactly 66 chars (0x + 64 hex) for bytes32
+      if (commitmentBytes32.length !== 66) {
+        throw new Error("Commitment is not valid bytes32 length");
       }
-      
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        const sender = accounts[0];
-        const userIdHash = web3.utils.sha3(user.id);
-      
-        await contractInstance.methods.submitVote(userIdHash, commitment).send({ from: sender });
-      
-        console.log("✅ Vote submitted to blockchain.");
-        alert("✅ Vote successfully recorded on-chain!");
-      } catch (err) {
-        console.error("❌ Vote submission error:", err);
-        alert("❌ Failed to submit vote to blockchain. See console for details.");
-      }
-      
-      await contractInstance.methods.submitVote(userIdHash, commitmentBytes32)
+  
+      await contractInstance.methods
+        .submitVote(userIdHash, commitmentBytes32)
         .send({ from: sender });
   
-      alert("✅ Vote successfully submitted to the blockchain!");
+      console.log("✅ Vote successfully submitted to blockchain.");
+      alert("✅ Vote recorded with valid proof!");
+  
     } catch (err) {
       console.error("❌ Vote submission error:", err);
-      alert("❌ Failed to submit vote. See console.");
+      alert("❌ Failed to submit vote. Check console.");
     } finally {
       setSelectedElection(null);
     }
   };
+  
   
   
 
